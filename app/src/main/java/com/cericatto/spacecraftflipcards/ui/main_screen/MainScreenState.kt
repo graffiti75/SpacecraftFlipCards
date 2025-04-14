@@ -7,5 +7,5 @@ data class MainScreenState(
 	val loading : Boolean = true,
 	var craftNames : List<CraftName> = initCraftNames(),
 	var isConnected : Boolean = true,
-	val performAnimation : Boolean = false
+	val flip : Boolean = false
 )

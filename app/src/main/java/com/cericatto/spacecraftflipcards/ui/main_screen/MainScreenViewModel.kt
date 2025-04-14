@@ -22,12 +22,20 @@ class MainScreenViewModel @Inject constructor(
 
 	fun onAction(action: MainScreenAction) {
 		when (action) {
-			is MainScreenAction.OnRetry -> fetchData()
+			is MainScreenAction.FlipCard -> flipCard()
 		}
 	}
 
 	init {
 		fetchData()
+	}
+
+	private fun flipCard() {
+		_state.update { state ->
+			state.copy(
+				flip = !_state.value.flip
+			)
+		}
 	}
 
 	private fun fetchData() {
@@ -37,8 +45,7 @@ class MainScreenViewModel @Inject constructor(
 					_state.update { state ->
 						state.copy(
 							loading = false,
-							isConnected = false,
-							performAnimation = true
+							isConnected = false
 						)
 					}
 				}
@@ -47,8 +54,7 @@ class MainScreenViewModel @Inject constructor(
 					_state.update { state ->
 						state.copy(
 							loading = false,
-							craftNames = result.data,
-							performAnimation = false
+							craftNames = result.data
 						)
 					}
 				}

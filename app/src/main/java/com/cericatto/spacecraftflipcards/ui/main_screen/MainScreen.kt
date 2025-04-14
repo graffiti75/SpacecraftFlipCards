@@ -1,7 +1,14 @@
 package com.cericatto.spacecraftflipcards.ui.main_screen
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,7 +26,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -49,6 +58,8 @@ import com.cericatto.spacecraftflipcards.ui.theme.frontSideBackgroundLast
 import com.cericatto.spacecraftflipcards.ui.theme.frontSidePrimaryText
 import com.cericatto.spacecraftflipcards.ui.theme.frontSideSecondaryText
 import com.cericatto.spacecraftflipcards.ui.theme.lightContours
+import kotlin.math.PI
+import kotlin.math.cos
 
 @Composable
 fun MainScreenRoot(
@@ -84,7 +95,7 @@ private fun MainScreen(
 		}
 	} else {
 		if (state.craftNames.isNotEmpty()) {
-			MainScreenContent(
+			FlipComposable(
 				modifier = modifier,
 				onAction = onAction,
 				state = state
@@ -94,14 +105,42 @@ private fun MainScreen(
 }
 
 @Composable
-private fun MainScreenContent(
+private fun FlipComposable(
 	modifier: Modifier = Modifier,
 	onAction: (MainScreenAction) -> Unit,
 	state: MainScreenState
 ) {
-	Column(
-		horizontalAlignment = Alignment.CenterHorizontally,
-		verticalArrangement = Arrangement.Center,
+	// Animation state for rotation
+	val rotation = remember { Animatable(0f) }
+
+	/*
+	val alphaFront = if (rotation.value <= 85f) 1f
+	else if (rotation.value >= 95f) 0f
+	else 1f - (rotation.value - 85f) / 10f
+
+	val alphaBack = if (rotation.value <= 85f) 0f
+	else if (rotation.value >= 95f) 1f
+	else (rotation.value - 85f) / 10f
+	 */
+
+	val alphaFront = cos(rotation.value * (PI / 180f)).coerceAtLeast(0.0)
+	val alphaBack = cos((rotation.value - 180f) * (PI / 180f)).coerceAtLeast(0.0)
+
+	// Launch animation when flip state changes
+	LaunchedEffect(state.flip) {
+		rotation.animateTo(
+			targetValue = if (state.flip) 180f else 0f,
+			animationSpec = tween(
+				durationMillis = 1500,
+				easing = LinearOutSlowInEasing,
+//				easing = FastOutSlowInEasing,
+//				easing = CubicBezierEasing(0.5f, 0.0f, 1.0f, 0.0f)
+			)
+		)
+	}
+
+	Box(
+		contentAlignment = Alignment.Center,
 		modifier = Modifier
 			.fillMaxSize()
 			.background(
@@ -112,24 +151,47 @@ private fun MainScreenContent(
 					)
 				)
 			)
+			.graphicsLayer {
+				// Apply rotation around Y-axis for flip effect.
+				rotationY = rotation.value
+				// Adjust camera distance for better 3D effect.
+				cameraDistance = 12f * density
+			}
+			.clickable {
+				// Trigger flip action.
+				onAction(MainScreenAction.FlipCard)
+			},
 	) {
-		if (state.performAnimation) {
-			BackCard(
-				onAction = onAction,
-				modifier = modifier,
-				state = state
+		if (rotation.value <= 90f) {
+			FrontCard(
+				modifier = modifier
+					.graphicsLayer {
+//						alpha = if (rotation.value <= 90f) 1f else 0f
+						alpha = alphaFront.toFloat()
+						rotationY = 0f // No additional rotation needed
+					}
 			)
 		} else {
-			FrontCard()
+			BackCard(
+				modifier = modifier
+					.graphicsLayer {
+//						alpha = if (rotation.value > 90f) 1f else 0f
+						alpha = alphaBack.toFloat()
+						rotationY = 180f // Corrects orientation when Box is at 180°
+					},
+				state = state
+			)
 		}
 	}
 }
 
 @Composable
-private fun FrontCard() {
+private fun FrontCard(
+	modifier: Modifier = Modifier
+) {
 	Box(
 		contentAlignment = Alignment.Center,
-		modifier = Modifier
+		modifier = modifier
 			.clipToBounds()
 			.background(
 				frontCardShape()
@@ -175,12 +237,11 @@ private fun FrontCard() {
 @Composable
 private fun BackCard(
 	modifier: Modifier = Modifier,
-	onAction: (MainScreenAction) -> Unit,
 	state: MainScreenState
 ) {
 	Box(
 		contentAlignment = Alignment.Center,
-		modifier = Modifier
+		modifier = modifier
 			.clipToBounds()
 			.background(
 				backCardShape()
@@ -216,7 +277,6 @@ private fun BackCard(
 		) {
 			CraftList(
 				modifier = Modifier,
-				onAction = onAction,
 				state = state
 			)
 		}
@@ -226,7 +286,6 @@ private fun BackCard(
 @Composable
 private fun CraftList(
 	modifier: Modifier = Modifier,
-	onAction: (MainScreenAction) -> Unit,
 	state: MainScreenState
 ) {
 	LazyColumn(
@@ -280,7 +339,7 @@ private fun MainScreenPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun MainScreenContentPreview() {
-	MainScreenContent(
+	FlipComposable(
 		onAction = {},
 		state = MainScreenState().copy(
 			loading = false,
@@ -292,14 +351,15 @@ private fun MainScreenContentPreview() {
 @Preview(showBackground = true)
 @Composable
 private fun FrontCardPreview() {
-	FrontCard()
+	FrontCard(
+		modifier = Modifier
+	)
 }
 
 @Preview(showBackground = true)
 @Composable
 private fun BackCardPreview() {
 	BackCard(
-		onAction = {},
 		modifier = Modifier,
 		state = MainScreenState()
 			.copy(
